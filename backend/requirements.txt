@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-multipart
+faster-whisper
+pydantic
+pydantic-settings
+httpx
+numpy
+jieba
+scikit-learn
+python-dotenv
+aiofiles
+yt-dlp
+websockets

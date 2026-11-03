@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>视频内容总结助手</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh; color: #333;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  header { text-align: center; color: #fff; margin-bottom: 28px; }
+  header h1 { font-size: 32px; margin-bottom: 8px; }
+  header p { opacity: 0.85; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 24px;
+    margin-bottom: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  }
+  .dropzone {
+    border: 3px dashed #c7d2fe; border-radius: 12px; padding: 48px;
+    text-align: center; cursor: pointer; transition: all .2s;
+    background: #f8faff;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: #667eea; background: #eef2ff; }
+  .dropzone .icon { font-size: 56px; margin-bottom: 12px; }
+  .dropzone .hint { color: #6b7280; font-size: 14px; margin-top: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 600; transition: .2s;
+  }
+  .btn-primary { background: #667eea; color: #fff; }
+  .btn-primary:hover { background: #5a67d8; }
+  .btn-ghost { background: #f3f4f6; color: #374151; }
+  .btn-ghost:hover { background: #e5e7eb; }
+  .btn-danger { background: #fee2e2; color: #b91c1c; }
+  .progress-bar {
+    height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin: 12px 0;
+  }
+  .progress-bar > div {
+    height: 100%; background: linear-gradient(90deg, #667eea, #764ba2);
+    transition: width .4s ease; border-radius: 999px;
+  }
+  .status { display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+  }
+  .badge-done { background: #d1fae5; color: #065f46; }
+  .badge-failed { background: #fee2e2; color: #991b1b; }
+  .badge-processing { background: #dbeafe; color: #1e40af; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+  .section { margin-bottom: 20px; }
+  .section h3 {
+    font-size: 16px; margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 2px solid #eef2ff; color: #4c1d95;
+  }
+  .key-points li { margin: 6px 0 6px 20px; line-height: 1.6; }
+  .insight { line-height: 1.95; color: #374151; text-align: justify; white-space: pre-wrap; }
+  .chapter {
+    background: #f9fafb; border-left: 3px solid #667eea;
+    padding: 10px 14px; margin-bottom: 10px; border-radius: 6px;
+  }
+  .chapter .ch-title { font-weight: 600; color: #4c1d95; }
+  .chapter .ch-time { color: #667eea; font-size: 12px; margin-right: 8px; }
+  .chapter .ch-desc { color: #6b7280; font-size: 13px; margin-top: 4px; }
+  .lines {
+    max-height: 420px; overflow-y: auto; background: #f9fafb;
+    padding: 14px 16px; border-radius: 8px; font-size: 14px; line-height: 1.9;
+    white-space: pre-wrap; word-break: break-word; color: #374151;
+  }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer;
+  }
+  .history-item:hover { background: #f9fafb; }
+  .history-item .meta { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab {
+    padding: 8px 18px; border-radius: 8px; cursor: pointer;
+    background: #f3f4f6; font-weight: 600; font-size: 14px;
+  }
+  .tab.active { background: #667eea; color: #fff; }
+  .empty { text-align: center; color: #9ca3af; padding: 40px; }
+  .error { color: #b91c1c; background: #fee2e2; padding: 10px; border-radius: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  select, input[type=file] { font-size: 14px; }
+  .url-box {
+    margin-top: 16px; padding: 16px; border-radius: 12px;
+    background: #f8faff; border: 1px solid #e0e7ff;
+  }
+  .url-title { font-weight: 600; color: #4c1d95; font-size: 14px; }
+  .url-input {
+    flex: 1; padding: 10px 14px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: 14px; outline: none; transition: .2s;
+  }
+  .url-input:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,.15); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .source-link { font-size: 12px; color: #667eea; margin-top: 6px; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="container">
+    <header>
+      <h1>🎬 视频内容总结助手</h1>
+      <p>上传视频或音频，自动生成摘要、关键要点、深度总结与章节</p>
+    </header>
+
+    <div class="card">
+      <div class="tabs">
+        <div class="tab" :class="{active: tab==='new'}" @click="tab='new'">新建任务</div>
+        <div class="tab" :class="{active: tab==='history'}" @click="tab='history'; loadHistory()">历史记录</div>
+      </div>
+
+      <!-- 新建任务 -->
+      <div v-if="tab==='new'">
+        <div class="dropzone" :class="{drag: drag}"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="drag=true"
+             @dragleave.prevent="drag=false"
+             @drop.prevent="onDrop">
+          <div class="icon">📹</div>
+          <div style="font-weight:600;font-size:16px">点击或拖拽文件到此处上传</div>
+          <div class="hint">支持 mp4 / mov / avi / mkv / mp3 / wav 等格式</div>
+          <input ref="fileInput" type="file" style="display:none"
+                 accept="video/*,audio/*" @change="onFileSelect" />
+        </div>
+
+        <div class="url-box">
+          <div class="url-title">🔗 或者粘贴视频链接</div>
+          <div class="row" style="margin-top:10px">
+            <input class="url-input" v-model="urlInput" type="text"
+                   placeholder="粘贴抖音 / 哔哩哔哩视频链接，如 https://www.bilibili.com/video/BV1xx411c7mD"
+                   @keyup.enter="submitUrl" />
+            <button class="btn btn-primary" :disabled="urlLoading" @click="submitUrl">
+              {{ urlLoading ? '解析中...' : '开始总结' }}
+            </button>
+          </div>
+          <div class="hint" style="margin-top:8px">
+            支持 抖音 / 哔哩哔哩 / YouTube / 优酷 / 腾讯视频 / 西瓜视频 / 微博 的视频链接，可直接粘贴分享文案
+          </div>
+        </div>
+
+        <div v-if="currentTask" style="margin-top:20px">
+          <div class="status">
+            <span>{{ progress.message }}</span>
+            <span>{{ progress.percent }}%</span>
+          </div>
+          <div class="progress-bar"><div :style="{width: progress.percent + '%'}"></div></div>
+          <div class="status">
+            <span>阶段：{{ stageLabel(progress.stage) }}</span>
+            <span class="badge" :class="badgeClass(progress.status)">{{ statusLabel(progress.status) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 历史记录 -->
+      <div v-else>
+        <div v-if="history.length===0" class="empty">暂无历史记录</div>
+        <div v-for="item in history" :key="item.id" class="history-item" @click="loadTask(item.id)">
+          <div>
+            <div style="font-weight:600">{{ item.filename }}</div>
+            <div class="meta">
+              {{ formatTime(item.created_at) }} · {{ item.word_count||0 }}字
+              <span class="badge" :class="badgeClass(item.status)" style="margin-left:8px">{{ statusLabel(item.status) }}</span>
+            </div>
+          </div>
+          <button class="btn btn-danger" @click.stop="removeTask(item.id)">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 结果展示 -->
+    <div v-if="task && task.status==='done'" class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h2 style="color:#4c1d95">📄 {{ task.filename }}</h2>
+          <div v-if="task.source_url" class="source-link">
+            🔗 来源：<a :href="task.source_url" target="_blank">{{ task.source_url }}</a>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" @click="exportResult('md')">导出 MD</button>
+          <button class="btn btn-ghost" @click="exportResult('txt')">导出 TXT</button>
+          <button class="btn btn-ghost" @click="showLines=!showLines">
+            {{ showLines ? '隐藏' : '查看' }}台词
+          </button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="section">
+          <h3>📝 总体摘要</h3>
+          <p style="line-height:1.8">{{ task.summary }}</p>
+        </div>
+        <div class="section">
+          <h3>🎯 关键要点</h3>
+          <ul class="key-points">
+            <li v-for="(p,i) in task.key_points" :key="i">{{ p }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section" v-if="task.insight">
+        <h3>💭 深度总结</h3>
+        <p class="insight">{{ task.insight }}</p>
+      </div>
+
+      <div class="section">
+        <h3>📑 章节</h3>
+        <div v-for="(c,i) in task.chapters" :key="i" class="chapter">
+          <span class="ch-time">[{{ fmt(c.start) }}]</span>
+          <span class="ch-title">{{ c.title }}</span>
+          <div class="ch-desc">{{ c.description }}</div>
+        </div>
+        <div v-if="!task.chapters||!task.chapters.length" style="color:#9ca3af">无章节信息</div>
+      </div>
+
+      <div v-if="showLines" class="section">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h3 style="margin-bottom:0;border-bottom:none">🎬 全部台词</h3>
+          <button class="btn btn-ghost" style="padding:6px 14px" @click="copyLines">复制台词</button>
+        </div>
+        <div class="lines" style="margin-top:10px">{{ linesText }}</div>
+        <div v-if="!task.lines_text && linesText" style="color:#b45309;font-size:12px;margin-top:6px">
+          未启用 AI 整理（未配置 LLM），以下为原始转写拼接，可能缺少标点或含繁体
+        </div>
+        <div v-if="!linesText" style="color:#9ca3af">暂无台词内容</div>
+      </div>
+    </div>
+
+    <div v-if="task && task.status==='failed'" class="card">
+      <div class="error">处理失败：{{ task.error }}</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+const API = '';  // 同源
+
+createApp({
+  setup() {
+    const tab = ref('new');
+    const drag = ref(false);
+    const currentTask = ref(null);
+    const progress = ref({ percent: 0, message: '', stage: '', status: 'pending' });
+    const task = ref(null);
+    const history = ref([]);
+    const showLines = ref(false);
+    const urlInput = ref('');
+    const urlLoading = ref(false);
+    let pollTimer = null;
+
+    const fmt = (s) => {
+      s = Math.floor(s||0);
+      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+      return h>0 ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+                 : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    };
+    const formatTime = (ts) => new Date(ts*1000).toLocaleString('zh-CN');
+    const statusLabel = (s) => ({pending:'排队中',processing:'处理中',done:'已完成',failed:'失败'}[s]||s);
+    const badgeClass = (s) => ({done:'badge-done',failed:'badge-failed',processing:'badge-processing',pending:'badge-pending'}[s]||'');
+    const stageLabel = (s) => ({pending:'排队',start:'启动',parse:'解析链接',download:'下载视频',downloaded:'下载完成',extract:'抽取音频',asr:'语音识别',correct:'校正识别',summarize:'生成摘要',lines:'整理台词',done:'完成',failed:'失败'}[s]||s);
+
+    const upload = async (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch(`${API}/api/upload`, { method:'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '上传失败');
+        currentTask.value = data.task_id;
+        pollProgress();
+      } catch (e) {
+        alert('上传失败：' + e.message);
+      }
+    };
+
+    const onFileSelect = (e) => {
+      const f = e.target.files[0];
+      if (f) upload(f);
+      e.target.value = '';
+    };
+    const onDrop = (e) => {
+      drag.value = false;
+      const f = e.dataTransfer.files[0];
+      if (f) upload(f);
+    };
+
+    const submitUrl = async () => {
+      const url = urlInput.value.trim();
+      if (!url) { alert('请先粘贴视频链接'); return; }
+      urlLoading.value = true;
+      try {
+        const res = await fetch(`${API}/api/upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '链接解析失败');
+        currentTask.value = data.task_id;
+        task.value = null;
+        progress.value = { percent: 0, message: '正在解析链接...', stage: 'parse', status: 'pending' };
+        pollProgress();
+      } catch (e) {
+        alert('链接解析失败：' + e.message);
+      } finally {
+        urlLoading.value = false;
+      }
+    };
+
+    const pollProgress = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        if (!currentTask.value) return;
+        try {
+          const res = await fetch(`${API}/api/progress/${currentTask.value}`);
+          const data = await res.json();
+          progress.value = data;
+          if (data.status === 'done' || data.status === 'failed') {
+            clearInterval(pollTimer);
+            loadTask(currentTask.value);
+          }
+        } catch(e) { /* ignore */ }
+      }, 1000);
+    };
+
+    const loadTask = async (id) => {
+      try {
+        const res = await fetch(`${API}/api/task/${id}`);
+        task.value = await res.json();
+        currentTask.value = id;
+        if (task.value.status === 'processing' || task.value.status === 'pending') {
+          pollProgress();
+        }
+      } catch(e) { alert('加载任务失败'); }
+    };
+
+    const loadHistory = async () => {
+      const res = await fetch(`${API}/api/tasks`);
+      history.value = (await res.json()).items;
+    };
+
+    const removeTask = async (id) => {
+      if (!confirm('确认删除该任务？')) return;
+      await fetch(`${API}/api/task/${id}`, { method:'DELETE' });
+      history.value = history.value.filter(x => x.id !== id);
+    };
+
+    const exportResult = (fmt) => {
+      if (!task.value) return;
+      window.open(`${API}/api/export/${task.value.id}?fmt=${fmt}`, '_blank');
+    };
+
+    // 全部台词：优先后端 AI 整理的台词稿（简体中文、带标点），否则回退拼接原始转写
+    const linesText = computed(() => {
+      const polished = (task.value && task.value.lines_text) || '';
+      if (polished) return polished;
+      const segs = (task.value && task.value.transcript) || [];
+      let out = '';
+      for (const s of segs) {
+        const t = (s.text || '').trim();
+        if (!t) continue;
+        if (!out) { out = t; continue; }
+        const cjk = /[\u4e00-\u9fff]/;
+        out += (cjk.test(out.slice(-1)) || cjk.test(t[0])) ? t : ' ' + t;
+      }
+      return out;
+    });
+
+    const copyLines = async () => {
+      if (!linesText.value) { alert('暂无可复制的台词'); return; }
+      try {
+        await navigator.clipboard.writeText(linesText.value);
+        alert('台词已复制到剪贴板');
+      } catch (e) {
+        alert('复制失败，请手动选中台词文本复制');
+      }
+    };
+
+    onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
+
+    return {
+      tab, drag, currentTask, progress, task, history, showLines,
+      urlInput, urlLoading,
+      fmt, formatTime, statusLabel, badgeClass, stageLabel, linesText, copyLines,
+      onFileSelect, onDrop, submitUrl, loadTask, loadHistory, removeTask, exportResult
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
